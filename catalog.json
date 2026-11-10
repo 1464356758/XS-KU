@@ -1,7 +1,7 @@
 {
   "format": "novel-reference-library-v1",
   "library_id": "300553a5-d4fb-4f1c-b1d1-154daf74c92e",
-  "revision": 581,
+  "revision": 583,
   "books": {
     "f768bec19f704e5d74f1bdfa": {
       "source_sha256": "7cb4086ca4c337af1fcaf0933a0df6de74860232da69448a2e86972214a01aee",
@@ -5014,6 +5014,14 @@
     "21341b1a64c21b336f313460": {
       "path": "studies/21341b1a64c21b336f313460.json",
       "sha256": "21341b1a64c21b336f313460068cf43f9294f167eebca4089818f21349c8ed8a"
+    },
+    "91e609a3e501531214478d3e": {
+      "path": "studies/91e609a3e501531214478d3e.json",
+      "sha256": "91e609a3e501531214478d3e51452d102409614593ca2fe0a10f43ee9539929e"
+    },
+    "0f75ae5c9d1f962f8808ea9d": {
+      "path": "studies/0f75ae5c9d1f962f8808ea9d.json",
+      "sha256": "0f75ae5c9d1f962f8808ea9d99af7cd6720fe16b8be310365dd295cd05465e24"
     }
   },
   "practices": {
