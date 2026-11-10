@@ -24,3 +24,7 @@ python3 tools/novel_library.py --root . sync --repository-url https://github.com
 ```
 
 导出的参考摘要只带学习结论和回查位置。新书每章使用正式任务书记录本书用法，写后结合正文检查，按实际反馈继续修正。
+
+## V4.6接线完成
+
+新书模板与五个交付包的可复现源码位于[系统仓库](https://github.com/1464356758/xiaoshuoV5/tree/main/system_templates/v4.6)。本库保留全部原文与已有阅读记录；工具已补平台待核样本标记、同书候选去重，以及在线导出时的真实提交与原文校验。新书写后在原release报告核对教材实际效果及当前章证据。

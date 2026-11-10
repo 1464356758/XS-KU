@@ -429,26 +429,41 @@ def search(root, query, platform="", genre="", level="", limit=5):
     workspace.require(terms and 1 <= limit <= 30, "使用有效检索词，结果数量须为1—30。")
     catalog = load(root)
     matches = []
+    def fits(entry):
+        return (not platform or not entry.get("platform") or entry["platform"] == platform) and (
+            not genre or entry.get("genre") == genre or (not entry.get("genre") and
+                (not entry.get("genre_hints") or genre in entry["genre_hints"])))
+    def platform_status(entry):
+        return "matched" if platform and entry.get("platform") == platform else (
+            "unverified" if not entry.get("platform") else "not_filtered")
     for study_id in catalog["studies"]:
         value = record(root, catalog, "studies", study_id)
         entry = catalog["books"][value["source"]["book_id"]]
-        if (platform and entry["platform"] != platform) or (genre and entry["genre"] != genre) or (level and value["level"] != level):
+        if not fits(entry) or (level and value["level"] != level):
             continue
         haystack = canonical({"study": value, "book": entry}).casefold()
         hits = [term for term in terms if term in haystack]
         if hits:
             matches.append({"study_id": study_id, "title": entry["title"], "platform": entry["platform"],
-                            "genre": entry["genre"], "matched_terms": hits, "study": value})
-    matches.sort(key=lambda item: (-len(item["matched_terms"]), item["study_id"]))
+                            "genre": entry["genre"], "platform_match": platform_status(entry),
+                            "matched_terms": hits, "study": value})
+    matches.sort(key=lambda item: (item["platform_match"] == "unverified", -len(item["matched_terms"]), item["study_id"]))
     books = [{"book_id": key, "title": entry["title"], "author": entry["author"],
               "platform": entry["platform"], "genre": entry["genre"], "chapter_count": entry["chapter_count"],
-              "origin": entry.get("origin", {}), "family_id": entry.get("family_id", key)}
+              "origin": entry.get("origin", {}), "family_id": entry.get("family_id", key),
+              "platform_match": platform_status(entry), "genre_hints": entry.get("genre_hints", [])}
              for key, entry in catalog["books"].items()
-             if (not platform or entry["platform"] == platform) and (not genre or entry["genre"] == genre)
+             if fits(entry)
              and any(term in canonical(entry).casefold() for term in terms)]
+    books.sort(key=lambda item: (item["platform_match"] == "unverified", item["title"], item["book_id"]))
+    candidates, families = [], set()
+    for item in books:
+        if item["family_id"] not in families:
+            candidates.append(item)
+            families.add(item["family_id"])
     return {"query": query, "indexed_studies": len(catalog["studies"]), "matching_studies": len(matches),
-            "candidate_books": books[:limit],
-            "results": matches[:limit], "note": "按已完成拆书记录检索。未命中时先看catalog，选择原文阅读并补建教材。"}
+            "candidate_books": candidates[:limit],
+            "results": matches[:limit], "note": "平台待核样本单独标记，不能当成该平台已签约证据。同书版本按family_id选一个候选。未命中时先实际阅读原文并补建教材。"}
 
 
 def practice_request(root, book_id, through, answer_through, question, out):
@@ -514,8 +529,48 @@ def review_check(root, path):
 validate_packet = workspace.validate_reference_packet
 
 
+def verify_export_commit(root, repository_url, commit, catalog, collections):
+    if not repository_url and not commit:
+        return
+    workspace.require(bool(repository_url) and bool(re.fullmatch(r"[0-9a-f]{40}", commit)),
+                      "线上教材须同时提供真实仓库和40位提交。")
+    try:
+        def git(*args):
+            return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.PIPE)
+        remote = git("config", "--get", "remote.origin.url").decode().strip().removesuffix(".git").rstrip("/")
+        workspace.require(remote == repository_url.rstrip("/"), "导出仓库与当前origin不符。")
+        git("cat-file", "-e", commit + "^{commit}")
+        paths = {"catalog.json"}
+        for collection, ids in collections:
+            for record_id in ids:
+                pin = catalog[collection][record_id]
+                paths.add(pin["path"])
+                value = record(root, catalog, collection, record_id)
+                if collection == "reviews":
+                    paths.add(catalog["practices"][value["attempt_id"]]["path"])
+                    source = record(root, catalog, "practices", value["attempt_id"])["task"]["answer"]
+                else:
+                    source = value["source"]
+                entry = catalog["books"][source["book_id"]]
+                paths.add(entry["manifest_path"])
+                if entry.get("origin"):
+                    origin = entry["origin"]
+                    blob = git("rev-parse", commit + ":" + origin["path"]).decode().strip()
+                    workspace.require(blob == origin["blob_sha"], "固定提交中的原文版本与教材不一致。")
+                else:
+                    manifest, _ = book_data(root, catalog, source["book_id"])
+                    paths.add(manifest["text_path"])
+        for relative in paths:
+            workspace.require(git("show", commit + ":" + relative) == workspace.inside(root, relative).read_bytes(),
+                              "教材或目录有未提交修改，不能绑定所填提交：" + relative)
+    except (subprocess.CalledProcessError, OSError) as error:
+        raise workspace.WorkspaceError("无法核实教材实际提交，请先提交并取得可读取的版本。") from error
+
+
 def export_packet(root, studies, reviews, question, out, repository_url="", commit=""):
     catalog = load(root)
+    studies, reviews = list(studies), list(reviews)
+    verify_export_commit(root, repository_url, commit, catalog, (("studies", studies), ("reviews", reviews)))
     lessons = []
     for collection, ids in (("studies", studies), ("reviews", reviews)):
         for record_id in dict.fromkeys(ids):
