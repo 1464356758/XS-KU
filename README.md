@@ -28,3 +28,5 @@ python3 tools/novel_library.py --root . sync --repository-url https://github.com
 ## V4.6接线完成
 
 新书模板与五个交付包的可复现源码位于[系统仓库](https://github.com/1464356758/xiaoshuoV5/tree/main/system_templates/v4.6)。本库保留全部原文与已有阅读记录；工具已补平台待核样本标记、同书候选去重，以及在线导出时的真实提交与原文校验。新书写后在原release报告核对教材实际效果及当前章证据。
+
+V4.6.2新书统一目标6000汉字一章。前五章整体对照需两部独立开篇各实读至少一万汉字，形成arc/book教材；export已携带实读范围与汉字数。已有12条局部教材与原始阅读声明保持原样，未冒称新增实读。细则见docs/前五章投稿验收.md。
